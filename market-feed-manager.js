@@ -2,8 +2,9 @@ const MarketWebSocket = require('./market-websocket');
 
 // MarketFeedManager: orchestrates per-asset feeds
 class MarketFeedManager {
-  constructor({ marketWsUrl }) {
+  constructor({ marketWsUrl, labelService }) {
     this.marketWsUrl = marketWsUrl;
+    this.labelService = labelService;
     this.feeds = new Map(); // assetId -> MarketWebSocket
     this._messageCallback = null;
   }
@@ -13,9 +14,10 @@ class MarketFeedManager {
   }
 
   _emit(assetId, msg) {
+    const label = this.labelService?.getLabel ? this.labelService.getLabel(assetId) : undefined;
     if (this._messageCallback) {
-      // Normalize message to include assetId and optional label
-      this._messageCallback({ assetId, ...msg });
+      // Normalize message to include assetId, label, and the payload
+      this._messageCallback({ assetId, label, ...msg });
     }
   }
 

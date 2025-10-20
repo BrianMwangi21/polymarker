@@ -20,8 +20,9 @@ async function fetchTargetAssetIds(gammaApiUrl) {
   const { assetIdsList, event, market } = parseAssetIdsFromGammaEvent(body);
   logger.log('[Gamma] event:', event?.title || event?.slug);
   logger.log('[Gamma] market:', market?.slug || market?.question);
+  logger.log('[Gamma] market id:', market?.id);
   logger.log('[Gamma] assets_ids:', assetIdsList);
-  return assetIdsList;
+  return { assetIdsList, market };
 }
 
 function parseAssetIdsFromGammaEvent(body) {
