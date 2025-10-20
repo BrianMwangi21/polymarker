@@ -1,6 +1,6 @@
 require('dotenv').config();
 const logger = require('./logger');
-const MarketWebSocket = require('./market-websocket');
+const MarketFeedManager = require('./market-feed-manager');
 const { fetchTargetAssetIds } = require('./gamma');
 
 const gammaEventsUrl = process.env.GAMMA_API;
@@ -18,13 +18,12 @@ for (const key of requiredEnv) {
 async function main() {
   try {
     const assetsIds = await fetchTargetAssetIds(gammaEventsUrl);
-    const ws = new MarketWebSocket(marketWsUrl, assetsIds);
-    ws.onMessage((msg) => {
-      // Minimal observability: log normalized messages
-      logger.log('[MarketWS] message', msg);
+    const marketFeedManager = new MarketFeedManager({ marketWsUrl });
+    marketFeedManager.onMessage((payload) => {
+      logger.log('[Feed] message', payload);
     });
-    await ws.start();
-    logger.log('[INIT] MarketWebSocket started for assets:', assetsIds);
+    marketFeedManager.startAll(assetsIds);
+    logger.log('[INIT] MarketFeedManager started for assets:', assetsIds);
   } catch (e) {
     logger.log('[MAIN] failed:', e.message);
     process.exit(1);
