@@ -1,0 +1,22 @@
+{
+  "name": "polymarker",
+  "version": "1.0.0",
+  "description": "Smart Polymarket Market Maker",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@polymarket/clob-client": "^4.22.7",
+    "dotenv": "^17.2.3",
+    "ethers": "^5.8.0",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  }
+}
