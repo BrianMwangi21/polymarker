@@ -2,6 +2,7 @@ require('dotenv').config();
 const logger = require('./logger');
 const MarketFeedManager = require('./market-feed-manager');
 const LabelService = require('./label-service');
+const TickerFormat = require('./ticker-format');
 const { fetchTargetAssetIds } = require('./gamma');
 
 const gammaEventsUrl = `${process.env.GAMMA_BASE_API}/events?order=id&ascending=false&closed=false&limit=5`;
@@ -26,10 +27,15 @@ async function main() {
     }
 
     const marketFeedManager = new MarketFeedManager({ marketWsUrl, labelService });
+    const ticker = new TickerFormat();
+    ticker.start();
+
     marketFeedManager.onMessage((payload) => {
-      // Show enriched payload, including label when available
+      ticker.update(payload);
+      // Also log for completeness
       logger.log('[Feed] message', payload);
     });
+
     marketFeedManager.startAll(assetIdsList);
     logger.log('[INIT] MarketFeedManager started for assets:', assetIdsList);
   } catch (e) {
