@@ -1,21 +1,15 @@
-// Simple terminal ticker formatter (no colors, pipe-separated columns)
+// Simple terminal ticker formatter (plain text, append-only lines)
 class TickerFormat {
   constructor() {
     this.assets = new Map(); // assetId -> state
-    this.interval = null;
   }
 
   start() {
-    if (this.interval) return;
-    // render every 250ms (~4x/second)
-    this.interval = setInterval(() => this.render(), 250);
+    // no periodic render needed for append-only output
   }
 
   stop() {
-    if (this.interval) {
-      clearInterval(this.interval);
-      this.interval = null;
-    }
+    // nothing to stop in this simple mode
   }
 
   update(message) {
@@ -29,6 +23,7 @@ class TickerFormat {
       assetId,
       label,
       lastMid: null,
+      lastPrintedMid: null,
       bid: null,
       ask: null,
       changePct: 0,
@@ -42,11 +37,18 @@ class TickerFormat {
         const price = pc.price != null ? parseFloat(pc.price) : NaN;
         const bid = pc.best_bid != null ? parseFloat(pc.best_bid) : NaN;
         const ask = pc.best_ask != null ? parseFloat(pc.best_ask) : NaN;
-        const mid = (!Number.isNaN(bid) && !Number.isNaN(ask)) ? (bid + ask) / 2 : (!Number.isNaN(price) ? price : existing.lastMid);
-        const last = Number.isFinite(mid) ? mid : existing.lastMid;
+        // Prefer price as lastMid when available
+        let last;
+        if (Number.isFinite(price)) {
+          last = price;
+        } else if (Number.isFinite(bid) && Number.isFinite(ask)) {
+          last = (bid + ask) / 2;
+        } else {
+          last = existing.lastMid;
+        }
         const prev = existing.lastMid;
         let changePct = 0;
-        if (Number.isFinite(prev) && Number.isFinite(last) && prev !== 0) {
+        if (Number.isFinite(prev) && Number.isFinite(last) && prev > 0) {
           changePct = ((last - prev) / prev) * 100;
         }
         existing.lastMid = last;
@@ -55,8 +57,11 @@ class TickerFormat {
         existing.changePct = Number.isFinite(changePct) ? changePct : existing.changePct;
         existing.timestamp = now;
         this.assets.set(assetId, { ...existing, label });
+        // Emit a single line representing this asset update, appended to output
+        this._printLine({ assetId, label, lastMid: last, changePct, bid, ask, timestamp: now });
         return;
       }
+      // If price_changes present but no matching asset, fall through to fallback (will render existing state)
     }
 
     // Fallback: use direct fields on message if present
@@ -75,35 +80,31 @@ class TickerFormat {
 
     if (typeof mid === 'number' && !Number.isNaN(mid)) {
       const prev = existing.lastMid;
-      const changePct = (typeof prev === 'number') ? ((mid - prev) / prev) * 100 : 0;
+      const changePct = (typeof prev === 'number' && prev > 0) ? ((mid - prev) / prev) * 100 : 0;
       existing.changePct = changePct;
       existing.lastMid = mid;
+      existing.lastPrintedMid = mid;
       existing.timestamp = now;
       this.assets.set(assetId, { ...existing, label });
+      this._printLine({ assetId, label, lastMid: mid, changePct, bid: existing.bid, ask: existing.ask, timestamp: now });
     }
   }
 
+  _printLine(lineObj) {
+    const assetId = String(lineObj.assetId);
+    const label = lineObj.label || assetId;
+    const last = (typeof lineObj.lastMid === 'number' && Number.isFinite(lineObj.lastMid)) ? lineObj.lastMid.toFixed(2) : '—';
+    const change = (typeof lineObj.changePct === 'number' && Number.isFinite(lineObj.changePct)) ? lineObj.changePct.toFixed(2) + '%' : '—';
+    const bid = (typeof lineObj.bid === 'number' && Number.isFinite(lineObj.bid)) ? lineObj.bid.toFixed(2) : '—';
+    const ask = (typeof lineObj.ask === 'number' && Number.isFinite(lineObj.ask)) ? lineObj.ask.toFixed(2) : '—';
+    const t = lineObj.timestamp ? this._formatTimeFromEpoch(lineObj.timestamp) : this._formatTime();
+    // Format: AssetId | AssetLabel | Last | Change | Bid | Ask | Time
+    const line = `${assetId} | ${label} | ${last} | ${change} | ${bid} | ${ask} | ${t}`;
+    console.log(line);
+  }
+
   render() {
-    const entries = Array.from(this.assets.values())
-      .sort((a, b) => (a.label || a.assetId).localeCompare(b.label || b.assetId));
-
-    // Build lines
-    const lines = entries.map(s => {
-      const last = (typeof s.lastMid === 'number' && Number.isFinite(s.lastMid)) ? s.lastMid.toFixed(2) : '—';
-      const change = (typeof s.changePct === 'number' && Number.isFinite(s.changePct)) ? s.changePct.toFixed(2) + '%' : '—';
-      const bid = (typeof s.bid === 'number' && Number.isFinite(s.bid)) ? s.bid.toFixed(2) : '—';
-      const ask = (typeof s.ask === 'number' && Number.isFinite(s.ask)) ? s.ask.toFixed(2) : '—';
-      const t = s.timestamp ? this._formatTimeFromEpoch(s.timestamp) : this._formatTime();
-      const assetLabel = s.label ?? s.assetId;
-      // Format: AssetId | AssetLabel | Last | Change | Bid | Ask | Time
-      return `${s.assetId} | ${assetLabel} | ${last} | ${change} | ${bid} | ${ask} | ${t}`;
-    });
-
-    // Clear screen and draw all lines if there is something to render
-    if (lines.length > 0) {
-      process.stdout.write('\x1b[2J');
-      process.stdout.write(lines.join('\n') + '\n');
-    }
+    // Deprecated in this mode
   }
 
   _formatTime() {

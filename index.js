@@ -5,41 +5,47 @@ const LabelService = require('./label-service');
 const TickerFormat = require('./ticker-format');
 const { fetchTargetAssetIds } = require('./gamma');
 
-const gammaEventsUrl = `${process.env.GAMMA_BASE_API}/events?order=id&ascending=false&closed=false&limit=5`;
+const gammaEventsUrl = `${process.env.GAMMA_BASE_API}/events?order=id&ascending=false&closed=false&limit=10`;
 const marketWsUrl = process.env.MARKET_WS;
 
 // Startup validation: ensure required environment variables are defined
 const requiredEnv = ['GAMMA_BASE_API', 'MARKET_WS'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
-    logger.log(`[INIT] Missing environment variable: ${key}`);
     process.exit(1);
   }
 }
 
 async function main() {
+  let heartbeatInterval = null;
   try {
-    const { assetIdsList, market } = await fetchTargetAssetIds(gammaEventsUrl);
+    const { assetIdsList, marketMap } = await fetchTargetAssetIds(gammaEventsUrl);
     const labelService = new LabelService();
-    // Preload labels for the market (so assets have labels ASAP)
-    if (market?.id) {
-      await labelService.preloadLabels([market.id]);
+    // Preload labels for all markets across the 5 events
+    const marketIds = Object.values(marketMap || {});
+    if (marketIds.length) {
+      await labelService.preloadLabels(marketIds);
     }
 
+    // Initialize components
     const marketFeedManager = new MarketFeedManager({ marketWsUrl, labelService });
     const ticker = new TickerFormat();
     ticker.start();
 
     marketFeedManager.onMessage((payload) => {
       ticker.update(payload);
-      // Also log for completeness
-      logger.log('[Feed] message', payload);
     });
 
     marketFeedManager.startAll(assetIdsList);
-    logger.log('[INIT] MarketFeedManager started for assets:', assetIdsList);
+
+    // Simple heartbeat to indicate the ticker is alive and how many assets
+    const assetCount = assetIdsList.length;
+    console.log(`[TICKER] started with ${assetCount} assets`);
+    heartbeatInterval = setInterval(() => {
+      console.log(`[TICKER] alive: ${assetCount} assets`);
+    }, 30000);
   } catch (e) {
-    logger.log('[MAIN] failed:', e.message);
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
     process.exit(1);
   }
 }

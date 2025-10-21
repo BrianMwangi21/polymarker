@@ -1,5 +1,4 @@
-const logger = require('./logger');
-
+// Use project logger for consistency
 async function fetchTargetAssetIds(gammaApiUrl) {
   const MAX_RETRIES = 3;
   let attempt = 0;
@@ -17,32 +16,47 @@ async function fetchTargetAssetIds(gammaApiUrl) {
     }
   }
   const body = await res.json();
-  const { assetIdsList, event, market } = parseAssetIdsFromGammaEvent(body);
-  logger.log('[Gamma] event:', event?.title || event?.slug);
-  logger.log('[Gamma] market:', market?.slug || market?.question);
-  logger.log('[Gamma] market id:', market?.id);
-  logger.log('[Gamma] assets_ids:', assetIdsList);
-  return { assetIdsList, market };
+  const { assetIdsList, marketMap } = parseAssetIdsFromGammaEvent(body);
+  return { assetIdsList, marketMap };
 }
 
 function parseAssetIdsFromGammaEvent(body) {
   const events = Array.isArray(body) ? body : body.data;
   if (!events?.length) throw new Error('No events returned');
-  const event = events[0];
-  const mkt = event.markets?.[0];
-  if (!mkt) throw new Error('Event has no markets');
-  const assetIdsList = parseMarketTokens(mkt);
-  return { assetIdsList, event, market: mkt };
+  const limit = events.length;
+  const assetSet = new Set();
+  const marketMap = {}; // assetId -> marketId
+
+  for (let i = 0; i < limit; i++) {
+    const event = events[i];
+    const markets = event.markets || [];
+    for (const mkt of markets) {
+      const marketId = mkt?.id ?? null;
+      if (!marketId) continue;
+      const tokenIds = extractTokenIdsFromMarket(mkt);
+      for (const tid of tokenIds) {
+        const sid = String(tid);
+        assetSet.add(sid);
+        marketMap[sid] = String(marketId);
+      }
+    }
+  }
+
+  // Fallback: if no assets found, throw
+  if (assetSet.size === 0) throw new Error('No token IDs found in markets');
+
+  const assetIdsList = Array.from(assetSet);
+  return { assetIdsList, marketMap };
 }
 
-function parseMarketTokens(market) {
+function extractTokenIdsFromMarket(market) {
   if (market?.clobTokenIds) {
-    return JSON.parse(market.clobTokenIds).map(String);
+    try { return JSON.parse(market.clobTokenIds).map(String); } catch { return []; }
   }
   if (market?.tokens?.length) {
     return market.tokens.map(t => String(t.token_id));
   }
-  throw new Error('No token IDs on market');
+  return [];
 }
 
 module.exports = { fetchTargetAssetIds };

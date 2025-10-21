@@ -1,6 +1,6 @@
 class LabelService {
   constructor() {
-    this.baseMarketUrl = `${process.env.GAMMA_BASE_API}/markets/`;
+    this.baseMarketUrl = 'https://gamma-api.polymarket.com/markets/';
     this.labelCache = new Map(); // assetId -> label
     this.assetToMarket = new Map(); // assetId -> marketId (traceability, optional)
   }
@@ -32,23 +32,39 @@ class LabelService {
       if ((!tokenIds || tokenIds.length === 0) && Array.isArray(market.tokens)) {
         tokenIds = market.tokens.map(t => String(t.token_id));
       }
-      const outcomes = Array.isArray(market.outcomes) ? market.outcomes : [];
+      // Outcomes may be a string-encoded JSON array in some responses
+      let outcomes = [];
+      if (Array.isArray(market.outcomes)) {
+        outcomes = market.outcomes;
+      } else if (typeof market.outcomes === 'string') {
+        try {
+          outcomes = JSON.parse(market.outcomes);
+        } catch {
+          outcomes = [];
+        }
+      }
 
-      tokenIds.forEach((tid, idx) => {
-        const outcome = outcomes[idx];
+      // Map each tokenId to a label derived from slug + corresponding outcome if available
+      for (let i = 0; i < tokenIds.length; i++) {
+        const tid = String(tokenIds[i]);
+        const outcome = outcomes[i] ?? null;
         const label = outcome ? `${slug} ${outcome}` : slug;
-        this.labelCache.set(String(tid), label);
-        this.assetToMarket.set(String(tid), marketId);
-      });
+        this.labelCache.set(tid, label);
+        this.assetToMarket.set(tid, marketId);
+      }
     } catch (err) {
-      // Swallow error to keep startup resilient; log via console for visibility
-      console.warn('[LabelService] failed loading market', marketId, ':', err?.message || err);
+      // swallow error to keep startup resilient; no logs
     }
   }
 
   // Public: get label for an asset (assetId). Fallback to assetId if unknown.
   getLabel(assetId) {
     return this.labelCache.get(String(assetId)) || String(assetId);
+  }
+
+  // Debug helper: dump all known labels
+  dumpLabels() {
+    return Array.from(this.labelCache.entries()).map(([assetId, label]) => ({ assetId, label }));
   }
 }
 
