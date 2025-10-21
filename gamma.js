@@ -1,4 +1,4 @@
-// Use project logger for consistency
+
 async function fetchTargetAssetIds(gammaApiUrl) {
   const MAX_RETRIES = 3;
   let attempt = 0;

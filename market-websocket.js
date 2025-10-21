@@ -1,9 +1,6 @@
 const WebSocket = require('ws');
 
-// Minimal per-asset WebSocket interface
-// - start(): establish connection and subscribe to given asset IDs
-// - stop(): close connection
-// - onMessage(callback): register a consumer for normalized messages
+
 class MarketWebSocket {
   constructor(marketWsUrl, assetIds = []) {
     this.marketWsUrl = marketWsUrl;

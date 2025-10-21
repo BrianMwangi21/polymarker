@@ -1,4 +1,4 @@
-// Simple terminal ticker formatter (plain text, append-only lines)
+
 class TickerFormat {
   constructor() {
     this.assets = new Map(); // assetId -> state

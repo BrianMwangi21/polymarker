@@ -5,14 +5,14 @@ class LabelService {
     this.assetToMarket = new Map(); // assetId -> marketId (traceability, optional)
   }
 
-  // Preload labels for a set of marketIds
+
   async preloadLabels(marketIds) {
     if (!marketIds || marketIds.length === 0) return;
     const promises = marketIds.map(id => this._loadMarket(id));
     await Promise.all(promises);
   }
 
-  // Internal: load a market and derive labels for its token IDs
+
   async _loadMarket(marketId) {
     try {
       const res = await fetch(this.baseMarketUrl + marketId);
@@ -20,7 +20,7 @@ class LabelService {
       const market = await res.json();
       const slug = market.slug || market.question || '';
 
-      // Determine token IDs associated with this market
+    
       let tokenIds = [];
       if (market.clobTokenIds) {
         try {
@@ -32,7 +32,7 @@ class LabelService {
       if ((!tokenIds || tokenIds.length === 0) && Array.isArray(market.tokens)) {
         tokenIds = market.tokens.map(t => String(t.token_id));
       }
-      // Outcomes may be a string-encoded JSON array in some responses
+    
       let outcomes = [];
       if (Array.isArray(market.outcomes)) {
         outcomes = market.outcomes;
@@ -57,12 +57,12 @@ class LabelService {
     }
   }
 
-  // Public: get label for an asset (assetId). Fallback to assetId if unknown.
+
   getLabel(assetId) {
     return this.labelCache.get(String(assetId)) || String(assetId);
   }
 
-  // Debug helper: dump all known labels
+
   dumpLabels() {
     return Array.from(this.labelCache.entries()).map(([assetId, label]) => ({ assetId, label }));
   }

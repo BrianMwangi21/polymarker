@@ -8,7 +8,7 @@ const { fetchTargetAssetIds } = require('./gamma');
 const gammaEventsUrl = `${process.env.GAMMA_BASE_API}/events?order=id&ascending=false&closed=false&limit=10`;
 const marketWsUrl = process.env.MARKET_WS;
 
-// Startup validation: ensure required environment variables are defined
+
 const requiredEnv = ['GAMMA_BASE_API', 'MARKET_WS'];
 for (const key of requiredEnv) {
   if (!process.env[key]) {
@@ -21,7 +21,7 @@ async function main() {
   try {
     const { assetIdsList, marketMap } = await fetchTargetAssetIds(gammaEventsUrl);
     const labelService = new LabelService();
-    // Preload labels for all markets across the 5 events
+  
     const marketIds = Object.values(marketMap || {});
     if (marketIds.length) {
       await labelService.preloadLabels(marketIds);
@@ -38,7 +38,7 @@ async function main() {
 
     marketFeedManager.startAll(assetIdsList);
 
-    // Simple heartbeat to indicate the ticker is alive and how many assets
+
     const assetCount = assetIdsList.length;
     console.log(`[TICKER] started with ${assetCount} assets`);
     heartbeatInterval = setInterval(() => {
